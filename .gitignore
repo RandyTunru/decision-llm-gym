@@ -7,3 +7,5 @@ wandb/
 *.safetensors
 *.pt
 .env
+
+.vscode/
