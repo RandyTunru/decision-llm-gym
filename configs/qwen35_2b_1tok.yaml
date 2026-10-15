@@ -1,0 +1,55 @@
+# Decision-LLM training config (1-token approach, soft-label LoRA SFT).
+# python -m scripts.train --config configs/qwen35_2b_1tok.yaml
+
+# --- Run ---
+project_name: "decision-llm"
+run_name: "qwen35-2b-1tok"
+run_id: null                      # resume a wandb run id
+seed: 42
+device: "cuda"
+
+# --- Data ---
+catalog_dir: "../catalog"         # the decision catalog (read-only)
+snapshot: "20261014"              # subdir under catalog/states/ (must be assembled first)
+domains: ["news", "socmed", "computer_use", "game", "vision"]   # multimodal day one
+val_fraction: 0.1                 # split by group_key
+heldout_templates:                # whole question templates held out (new-question test), per domain
+  - "mil/military_emotion"
+  - "mil/military_sentiment"
+  - "sat/agriculture_profile"     # a held-out satellite profile set, as an example
+max_length: 8192                  # prompt + answer budget
+
+# --- Model ---
+model_name: "Qwen/Qwen3.5-2B"
+lora_r: 32
+lora_alpha: 64
+lora_dropout: 0.05
+lora_target_modules: "all-linear"
+gradient_checkpointing: true    # recompute activations: the K-label forward is memory-heavy
+max_state_chars: 5000           # truncate long news states so one prompt stays bounded
+max_labels_per_forward: 8       # cap label continuations per forward (content_category has 30)
+
+# --- Optimization ---
+batch_size: 1                     # examples per micro-batch (each example = one forward over its labels)
+gradient_accumulation_steps: 4
+learning_rate: 1.0e-4
+weight_decay: 0.01
+warmup_steps: 100
+max_steps: 5000
+min_lr_ratio: 0.1
+grad_clip: 1.0
+
+# --- Logging / IO ---
+log_every: 10
+eval_every: 250
+eval_max_batches: 100
+save_every: 500
+keep_checkpoints: 2
+wandb_dir: "logs"
+checkpoint_dir: "artifacts/checkpoints/qwen35-2b-1tok"
+adapter_dir: "artifacts/adapters/qwen35-2b-1tok"
+
+# --- Checkpoint loading ---
+from_checkpoint: null             # .pt checkpoint to warm-start the LoRA adapter
+is_resume: false                  # with from_checkpoint: also restore optimizer + step
+num_workers: 4
